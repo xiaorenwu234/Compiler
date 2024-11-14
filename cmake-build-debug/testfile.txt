@@ -1,0 +1,17 @@
+const int p = 88;
+int q = 66, r = 155;
+int s = 15;
+int max(int a, int b) {
+    return a;
+}
+int min(int a, int b) {
+    return a;
+}
+int scan() {
+
+    return 0;
+}
+int main() {
+    int a = max(min(p, q), max(s, scan()));
+    return 0;
+}
