@@ -9,8 +9,11 @@ std::vector<std::vector<std::string>> strs;
 //存储函数名栈，以便在函数嵌套调用的时候保留，第一维为当前所在函数层级的起始位置
 std::vector<std::pair<int, std::string>> funcnames;
 
-//当前函数的名称以及其对应的参数列表
-std::vector<std::vector<Register_Pair>> funcname_pars_match;
+//当前对应下面字典的深度列表
+int CurrentIndex = 0;
+
+//测试用的
+std::unordered_map<int, std::vector<Register_Pair>> funcname_pars_match;
 
 std::string cur_def_func_name;
 
@@ -23,8 +26,6 @@ std::string var_name;
 
 //在声明函数的时候需要给函数的形参开辟空间，这里先暂存一下形参的名称
 std::vector<std::string> func_f_params;
-
-Register_Pair left_register_global;
 
 
 //存储And和Or标签序号
@@ -201,7 +202,32 @@ void ConstInitVal() {
         }
     } else if (inputword.category == "STRCON") {
         for (int i = 1; i < inputword.word.size() - 1; ++i) {
-            values.push_back(static_cast<int>(inputword.word[i]));
+            if (inputword.word[i] == '\\') {
+                if (inputword.word[i] == 'n') {
+                    values.push_back(static_cast<int>('\n'));
+                } else if (inputword.word[i] == '\\') {
+                    values.push_back(static_cast<int>('\\'));
+                } else if (inputword.word[i] == 'v') {
+                    values.push_back(static_cast<int>('\v'));
+                } else if (inputword.word[i] == 't') {
+                    values.push_back(static_cast<int>('\t'));
+                } else if (inputword.word[i] == 'a') {
+                    values.push_back(static_cast<int>('\a'));
+                } else if (inputword.word[i] == 'b') {
+                    values.push_back(static_cast<int>('\b'));
+                } else if (inputword.word[i] == '\'') {
+                    values.push_back(static_cast<int>('\''));
+                } else if (inputword.word[i] == '\"') {
+                    values.push_back(static_cast<int>('\"'));
+                } else if (inputword.word[i] == '0') {
+                    values.push_back(static_cast<int>('\0'));
+                } else if (inputword.word[i] == 'f') {
+                    values.push_back(static_cast<int>('\\'));
+                }
+                i++;
+            } else {
+                values.push_back(static_cast<int>(inputword.word[i]));
+            }
         }
         getsym();
         std::vector<std::string> tmps;
@@ -306,7 +332,42 @@ void InitVal() {
     } else if (inputword.category == "STRCON") {
         std::vector<Register_Pair> reg_values;
         for (int i = 1; i < inputword.word.size() - 1; ++i) {
-            int tmpnum = inputword.word[i];
+            int tmpnum;
+            if (inputword.word[i] == '\\') {
+                if (inputword.word[i + 1] == 'a') {
+                    tmpnum = 7;
+                }
+                if (inputword.word[i + 1] == 'b') {
+                    tmpnum = 8;
+                }
+                if (inputword.word[i + 1] == 't') {
+                    tmpnum = 9;
+                }
+                if (inputword.word[i + 1] == 'n') {
+                    tmpnum = 10;
+                }
+                if (inputword.word[i + 1] == 'v') {
+                    tmpnum = 11;
+                }
+                if (inputword.word[i + 1] == 'f') {
+                    tmpnum = 12;
+                }
+                if (inputword.word[i + 1] == '\"') {
+                    tmpnum = 34;
+                }
+                if (inputword.word[i + 1] == '\'') {
+                    tmpnum = 39;
+                }
+                if (inputword.word[i + 1] == '\\') {
+                    tmpnum = 92;
+                }
+                if (inputword.word[i + 1] == '0') {
+                    tmpnum = 0;
+                }
+                i++;
+            } else {
+                tmpnum = inputword.word[i];
+            }
             reg_values.emplace_back(std::to_string(tmpnum), "Char");
         }
         Array_Init_Var(curscope->get_symbol(curname)->get_var_reg(), curscope->get_symbol(curname)->get_type_name(),
@@ -390,6 +451,10 @@ void FuncDef() {
         Block();
         if (tmp_func_type == "void") {
             Add_String("ret void\n", true);
+        } else if (tmp_func_type == "int") {
+            Add_String("ret i32 0\n", true);
+        } else if (tmp_func_type == "char") {
+            Add_String("ret i8 0\n", true);
         }
         Add_String("}\n\n");
         is_global = true;
@@ -439,6 +504,7 @@ void MainFuncDef() {
         Print_Global();
         register_cnt++;
         Block();
+        Add_String("ret i32 0\n", true);
         Add_String("}\n\n");
         is_global = true;
         if (hasreturned_lastline) {
@@ -766,6 +832,7 @@ void Stmt() {
                     std::vector<std::string> tmp_types;
                     std::vector<Register_Pair> tmp_pars;
                     Register_Pair registerPair = Call_Func("getint", "IntFunc", tmp_types, tmp_pars);
+
                     Assign_Varible_Not_Array(tmp_register, registerPair);
                 } else if (inputword.word == "getchar") {
                     getsym();
@@ -835,8 +902,6 @@ void ForStmt() {
 
 Register_Pair Exp() {
     Register_Pair left_register = AddExp();
-    left_register_global.Register=left_register.Register;
-    left_register_global.Type=left_register.Type;
     grammer_print("Exp");
     return left_register;
 }
@@ -906,7 +971,6 @@ Register_Pair LVal(bool is_in_exp) {
                                                    curscope->get_symbol(array_name_tmp)->get_type_name(),
                                                    curscope->get_symbol(array_name_tmp)->get_global(), Array_Length,
                                                    element_index);
-
     } else {
         if (is_in_exp) {
             if (curscope->get_symbol(var_name)->get_type_name().find("Array") == std::string::npos) {
@@ -952,8 +1016,35 @@ Register_Pair PrimaryExp() {
         left_register = Register_Pair(inputword.word, "Int");
         Number();
     } else if (inputword.category == "CHRCON") {
+        printf("%s\n", inputword.word.c_str());
         exp_params.push_back(inputword.word);
         int ascii = inputword.word[1];
+        int tmplength= inputword.word.size();
+        if (inputword.word[1] == '\\') {
+            if (inputword.word[tmplength-2] == '\\') {
+                ascii = 92;
+            } else if (inputword.word[tmplength-2] == 't') {
+                ascii = 9;
+            } else if (inputword.word[tmplength-2] == 'n') {
+                ascii = 10;
+            } else if (inputword.word[tmplength-2] == '\'') {
+                ascii = 39;
+            } else if (inputword.word[tmplength-2] == '\"') {
+                ascii = 34;
+            } else if (inputword.word[tmplength-2] == 'b') {
+                ascii = 8;
+            } else if (inputword.word[tmplength-2] == 'f') {
+                ascii = 12;
+            } else if (inputword.word[tmplength-2] == 'v') {
+                ascii = 11;
+            } else if (inputword.word[tmplength-2] == '0') {
+                ascii = 0;
+            } else if (inputword.word[tmplength-2] == 'a') {
+                ascii = 7;
+            } else {
+                ascii = inputword.word[2];
+            }
+        }
         left_register = Register_Pair(std::to_string(ascii), "Int");
         Character();
     } else {
@@ -1013,8 +1104,9 @@ Register_Pair UnaryExp() {
     } else if (fir.category == "IDENFR" && sec.word == "(") {
         funcnames.emplace_back(strs.size(), fir.word);
         std::vector<Register_Pair> tmp_reg_pars;
-        tmp_reg_pars.clear();
-        funcname_pars_match.push_back(tmp_reg_pars);
+        tmp_reg_pars.reserve(30);
+        CurrentIndex++;
+        funcname_pars_match[CurrentIndex] = tmp_reg_pars;
         if (!strs.empty()) {
             strs[strs.size() - 1].push_back(inputword.word);
         }
@@ -1049,11 +1141,9 @@ Register_Pair UnaryExp() {
                     }
                     pars.push_back(cursymbol);
                 }
-
-
                 std::vector<Register_Pair> par_regs_tmp;
                 par_regs_tmp.clear();
-                for (const auto &it: funcname_pars_match[funcname_pars_match.size() - 1]) {
+                for (const auto &it: funcname_pars_match[CurrentIndex]) {
                     par_regs_tmp.push_back(it);
                 }
                 while (strs.size() > funcnames[funcnames.size() - 1].first) {
@@ -1065,14 +1155,16 @@ Register_Pair UnaryExp() {
                         curscope->get_symbol(funcnames[funcnames.size() - 1].second))->get_all_params()) {
                     par_type.push_back(it->get_type_name());
                 }
+
                 left_register = Call_Func(funcnames[funcnames.size() - 1].second,
                                           curscope->get_symbol(funcnames[funcnames.size() - 1].second)->get_type_name(),
                                           par_type,
                                           par_regs_tmp);
 
-                judge_params(pars, funcnames[funcnames.size() - 1].second);
+//                judge_params(pars, funcnames[funcnames.size() - 1].second);
                 funcnames.pop_back();
-                funcname_pars_match.pop_back();
+                funcname_pars_match[CurrentIndex].clear();
+                CurrentIndex--;
                 getsym();
 
             } else {
@@ -1100,15 +1192,12 @@ void UnaryOp() {
 void FuncRParams() {
     std::vector<std::string> nowvec;
     strs.push_back(nowvec);
-    Exp();
-    printf("ok");
-    funcname_pars_match[funcname_pars_match.size() - 1].push_back(left_register_global);
+    funcname_pars_match[CurrentIndex].push_back(Exp());
     while (inputword.word == ",") {
         getsym();
         nowvec.clear();
         strs.push_back(nowvec);
-        Exp();
-        funcname_pars_match[funcname_pars_match.size() - 1].push_back(left_register_global);
+        funcname_pars_match[CurrentIndex].push_back(Exp());
     }
     grammer_print("FuncRParams");
 }

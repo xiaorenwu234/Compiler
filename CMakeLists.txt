@@ -13,8 +13,8 @@ set(SOURCES
         src/grammer_analysis.cpp
         src/getfirst.cpp
         src/symbletable.cpp
-        src/string_calculate.cpp
         src/intermediate_code.cpp
+        src/calculate_exp.cpp
 )
 
 add_executable(Compiler ${SOURCES})

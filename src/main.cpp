@@ -3,7 +3,6 @@
 #include <sstream>
 #include<cstdio>
 #include<iostream>
-#include<string_calculate.h>
 #include "grammer_analysis.h"
 
 void compareFiles(const std::string &file1, const std::string &file2) {

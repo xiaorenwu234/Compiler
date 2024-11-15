@@ -54,9 +54,6 @@ Register_Pair Load_Varible_Array(const std::string &VarName, const std::string &
 //处理表达式求值,返回的是临时的虚拟寄存器以及其对应的类型
 Register_Pair Handle_Exp(Register_Pair LeftArg, Register_Pair RightArg, const std::string &ope);
 
-//将i8类型的转为i32类型
-Register_Pair Sext_Register(const Register_Pair &Arg);
-
 //给非数组'变量'赋值
 void
 Assign_Varible_Not_Array(Register_Pair leftPair,

@@ -118,13 +118,6 @@ Assign_Varible_Const_NotArray(const std::string &VarName, const std::string &Var
     }
 }
 
-Register_Pair Sext_Register(const Register_Pair &Arg) {
-    Register_Pair registerPair("%" + std::to_string(register_cnt), "Int");
-    Add_String("%" + std::to_string(register_cnt) + " = sext i8 " + Arg.Register + " to i32\n");
-    register_cnt++;
-    return registerPair;
-}
-
 //有目标类型的Zext
 Register_Pair Zext_Register_Target(const Register_Pair &registerPair, const std::string &target) {
     Register_Pair return_register("%" + std::to_string(register_cnt), target);
@@ -230,12 +223,16 @@ Register_Pair Handle_Exp(Register_Pair LeftArg, Register_Pair RightArg, const st
                 "%" + std::to_string(register_cnt) + " =  srem i32 " + LeftArg.Register + ", " + RightArg.Register +
                 "\n");
     } else if (ope == "!") {
-        if (RightArg.Type == "Char" || RightArg.Type == "ConstChar") {
-            RightArg = Zext_Register(RightArg);
+        std::string tmpx;
+        if (RightArg.Type.find("Char") != std::string::npos) {
+            tmpx = "i8";
+        } else if (RightArg.Type == "Bool") {
+            tmpx = "i1";
+        } else {
+            tmpx = "i32";
         }
-        Add_String(
-                "%" + std::to_string(register_cnt) + " =  xor i32 " + RightArg.Register + ", " + std::to_string(1) +
-                "\n");
+        registerPair.Type = "Bool";
+        Add_String("%" + std::to_string(register_cnt) + " = icmp eq " + tmpx + " " + RightArg.Register + ", 0\n", true);
     } else if (ope == "||") {
         if (LeftArg.Type != "Bool") {
             LeftArg = To_Bool(LeftArg);
@@ -329,7 +326,7 @@ Register_Pair Load_Varible(const std::string &VarName, const std::string &VarTyp
     if (VarType == "Bool") {
         std::string tmpx = global ? "@" : "%";
         Add_String("%" + std::to_string(register_cnt) + " = load i1, i1* " + tmpx + VarName + "\n");
-    } else if (VarType == "ConstInt" || VarType == "Int"||VarType=="IntPtr") {
+    } else if (VarType == "ConstInt" || VarType == "Int" || VarType == "IntPtr") {
         std::string tmpx = global ? "@" : "%";
         Add_String("%" + std::to_string(register_cnt) + " = load i32, i32* " + tmpx + VarName + "\n");
     } else {
@@ -370,21 +367,18 @@ Register_Pair Load_Varible_Array(const std::string &VarName, const std::string &
 void
 Assign_Varible_Not_Array(Register_Pair leftPair,
                          Register_Pair registerPair) {
-    if(registerPair.Type.find("Ptr")!=std::string::npos){
-        registerPair= LoadPtr(registerPair);
+    if (registerPair.Type.find("Ptr") != std::string::npos) {
+        registerPair = LoadPtr(registerPair);
     }
-    if(leftPair.Type.find("Int")!=std::string::npos&&registerPair.Type.find("Char")!=std::string::npos){
-        registerPair= Zext_Register(registerPair);
+    if (leftPair.Type.find("Int") != std::string::npos && registerPair.Type.find("Char") != std::string::npos) {
+        registerPair = Zext_Register(registerPair);
         Add_String("store i32 " + registerPair.Register + ", i32* " + leftPair.Register + "\n");
-    }
-    else if(leftPair.Type.find("Char")!=std::string::npos&&registerPair.Type.find("Int")!=std::string::npos){
-        registerPair= Trunc_Register(registerPair);
+    } else if (leftPair.Type.find("Char") != std::string::npos && registerPair.Type.find("Int") != std::string::npos) {
+        registerPair = Trunc_Register(registerPair);
         Add_String("store i8 " + registerPair.Register + ", i8* " + leftPair.Register + "\n");
-    }
-    else if(leftPair.Type.find("Int")!=std::string::npos){
+    } else if (leftPair.Type.find("Int") != std::string::npos) {
         Add_String("store i32 " + registerPair.Register + ", i32* " + leftPair.Register + "\n");
-    }
-    else{
+    } else {
         Add_String("store i8 " + registerPair.Register + ", i8* " + leftPair.Register + "\n");
     }
 }
@@ -441,8 +435,8 @@ void Array_Init_Var(const std::string &VarName, const std::string &VarType, int 
         std::string tmpx = global ? "@" : "%";
         for (int i = 0; i < values.size(); ++i) {
             Register_Pair tmp_reg = values[i];
-            if(tmp_reg.Type.find("Ptr")!=std::string::npos){
-                tmp_reg= LoadPtr(tmp_reg);
+            if (tmp_reg.Type.find("Ptr") != std::string::npos) {
+                tmp_reg = LoadPtr(tmp_reg);
             }
             if (values[i].Type == "Int" || values[i].Type == "ConstInt") {
                 tmp_reg = Trunc_Register(values[i]);
@@ -458,8 +452,8 @@ void Array_Init_Var(const std::string &VarName, const std::string &VarType, int 
         std::string tmpx = global ? "@" : "%";
         for (int i = 0; i < values.size(); ++i) {
             Register_Pair tmp_reg = values[i];
-            if(tmp_reg.Type.find("Ptr")!=std::string::npos){
-                tmp_reg= LoadPtr(tmp_reg);
+            if (tmp_reg.Type.find("Ptr") != std::string::npos) {
+                tmp_reg = LoadPtr(tmp_reg);
             }
             if (values[i].Type == "Char" || values[i].Type == "Char") {
                 tmp_reg = Zext_Register(values[i]);
@@ -480,6 +474,9 @@ Load_Current_Array_Element(std::string VarName, std::string VarType, bool global
     Register_Pair return_register;
     if (registerPair.Type == "Char" || registerPair.Type == "ConstChar") {
         registerPair = Zext_Register(registerPair);
+    }
+    if (registerPair.Type.find("Ptr") != std::string::npos) {
+        registerPair = LoadPtr(registerPair);
     }
     if (VarType.find("Ptr") != std::string::npos) {
         if (VarType == "IntArrayPtr") {
@@ -511,8 +508,6 @@ Load_Current_Array_Element(std::string VarName, std::string VarType, bool global
                     " x i8], [" + std::to_string(Array_Length) + " x i8]* " + tmpx + VarName + ", i32 0, i32 " +
                     registerPair.Register + "\n");
         }
-//        register_cnt++;
-//        Add_String("%" + std::to_string(register_cnt) + " = load i8, i8* %" + std::to_string(register_cnt - 1) + "\n");
         return_register.Type = "CharPtr";
     } else {
         std::string tmpx = global ? "@" : "%";
@@ -527,9 +522,6 @@ Load_Current_Array_Element(std::string VarName, std::string VarType, bool global
                     " x i32], [" + std::to_string(Array_Length) + " x i32]* " + tmpx + VarName + ", i32 0, i32 " +
                     registerPair.Register + "\n");
         }
-//        register_cnt++;
-//        Add_String(
-//                "%" + std::to_string(register_cnt) + " = load i32, i32* %" + std::to_string(register_cnt - 1) + "\n");
         return_register.Type = "IntPtr";
     }
     return_register.Register = "%" + std::to_string(register_cnt);
@@ -554,18 +546,29 @@ Register_Pair Call_Func(const std::string &FuncName, const std::string &FuncType
     }
     int length = par_types.size();
     for (int i = 0; i < length; ++i) {
-        if(par_regs[i].Type.find("Ptr")!=std::string::npos){
-            par_regs[i]= LoadPtr(par_regs[i]);
-        }
-        if (par_types[i] == "Int" && (par_regs[i].Type == "Char" || par_regs[i].Type == "ConstChar")) {
+        if (par_types[i] == "Int" &&
+            (par_regs[i].Type == "Char" || par_regs[i].Type == "ConstChar" || par_regs[i].Type == "CharPtr")) {
+            if (par_regs[i].Type.find("Ptr") != std::string::npos) {
+                par_regs[i] = LoadPtr(par_regs[i]);
+            }
             par_regs[i] = Zext_Register(par_regs[i]);
-        } else if (par_types[i] == "Char" && (par_regs[i].Type == "Int" || par_regs[i].Type == "ConstInt")) {
+        } else if (par_types[i] == "Char" &&
+                   (par_regs[i].Type == "Int" || par_regs[i].Type == "ConstInt" || par_regs[i].Type == "IntPtr")) {
+            if (par_regs[i].Type.find("Ptr") != std::string::npos) {
+                par_regs[i] = LoadPtr(par_regs[i]);
+            }
             par_regs[i] = Trunc_Register(par_regs[i]);
         }
         if (par_types[i] == "Int") {
+            if (par_regs[i].Type.find("Ptr") != std::string::npos) {
+                par_regs[i] = LoadPtr(par_regs[i]);
+            }
             print_str += "i32 " + par_regs[i].Register;
         }
         if (par_types[i] == "Char") {
+            if (par_regs[i].Type.find("Ptr") != std::string::npos) {
+                par_regs[i] = LoadPtr(par_regs[i]);
+            }
             print_str += "i8 " + par_regs[i].Register;
         }
         if (par_types[i].find("IntArray") != std::string::npos) {
@@ -590,8 +593,8 @@ Register_Pair Call_Func(const std::string &FuncName, const std::string &FuncType
 }
 
 void Func_Return(const std::string &FuncType, Register_Pair registerPair) {
-    if(registerPair.Type.find("Ptr")!=std::string::npos){
-        registerPair= LoadPtr(registerPair);
+    if (registerPair.Type.find("Ptr") != std::string::npos) {
+        registerPair = LoadPtr(registerPair);
     }
     if (FuncType == "IntFunc") {
         if (registerPair.Type == "Char" || registerPair.Type == "ConstChar") {
@@ -692,14 +695,39 @@ void Print(const std::string &FormatString, std::vector<Register_Pair> OutPars) 
                         Call_PutChar(std::to_string(tmp));
                         i += 2;
                         break;
-                    case '"':
-                        tmp = '"';
+                    case '\"':
+                        tmp = '\"';
+                        Call_PutChar(std::to_string(tmp));
+                        i += 2;
+                        break;
+                    case '\'':
+                        tmp = '\'';
+                        Call_PutChar(std::to_string(tmp));
+                        i += 2;
+                        break;
+                    case '0':
+                        return;
+                    case 'a':
+                        tmp = '\a';
+                        Call_PutChar(std::to_string(tmp));
+                        i += 2;
+                        break;
+                    case 'b':
+                        tmp = '\b';
+                        Call_PutChar(std::to_string(tmp));
+                        i += 2;
+                        break;
+                    case 'v':
+                        tmp = '\v';
+                        Call_PutChar(std::to_string(tmp));
+                        i += 2;
+                        break;
+                    case 'f':
+                        tmp = '\f';
                         Call_PutChar(std::to_string(tmp));
                         i += 2;
                         break;
                     default:
-                        tmp = FormatString[i];
-                        Call_PutChar(std::to_string(tmp));
                         i++;
                         break;
                 }
@@ -729,6 +757,10 @@ void Print(const std::string &FormatString, std::vector<Register_Pair> OutPars) 
                     }
                     Call_PutInt(OutPars[cur_par].Register);
                     cur_par++;
+                    i += 2;
+                } else if (FormatString[i + 1] == '%') {
+                    tmp = '%';
+                    Call_PutChar(std::to_string(tmp));
                     i += 2;
                 } else {
                     tmp = FormatString[i];

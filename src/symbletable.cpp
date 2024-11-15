@@ -3,7 +3,6 @@
 //
 
 #include"symbletable.h"
-#include "string_calculate.h"
 #include<intermediate_code.h>
 
 std::shared_ptr<SymbolTable> curscope = nullptr;
@@ -283,8 +282,8 @@ std::string judge_class(const std::vector<std::string> &strs) {
 }
 
 int cal_exp(std::vector<std::string> values) {
-    std::vector<std::string> exps;
     std::string answer;
+    std::vector<std::string> exps;
     for (auto it: values) {
         if (is_string_number(it)) {
             answer += it;
@@ -314,8 +313,42 @@ int cal_exp(std::vector<std::string> values) {
         } else if (it == "(" || it == ")" || it == "+" || it == "-" || it == "*" || it == "/" || it == "%" ||
                    it[0] == '\'') {
             if (it[0] == '\'') {
-                answer += std::to_string(static_cast<int>(it[1]));
-                exps.push_back(std::to_string(static_cast<int>(it[1])));
+                if(it[1]!='\\'){
+                    answer += std::to_string(static_cast<int>(it[1]));
+                    exps.push_back(std::to_string(static_cast<int>(it[1])));
+                }
+                else {
+                    if(it[2]=='a'){
+                        exps.push_back(std::to_string(static_cast<int>('\a')));
+                    }
+                    if(it[2]=='b'){
+                        exps.push_back(std::to_string(static_cast<int>('\b')));
+                    }
+                    if(it[2]=='t'){
+                        exps.push_back(std::to_string(static_cast<int>('\t')));
+                    }
+                    if(it[2]=='n'){
+                        exps.push_back(std::to_string(static_cast<int>('\n')));
+                    }
+                    if(it[2]=='v'){
+                        exps.push_back(std::to_string(static_cast<int>('\v')));
+                    }
+                    if(it[2]=='f'){
+                        exps.push_back(std::to_string(static_cast<int>('\f')));
+                    }
+                    if(it[2]=='\"'){
+                        exps.push_back(std::to_string(static_cast<int>('\"')));
+                    }
+                    if(it[2]=='\''){
+                        exps.push_back(std::to_string(static_cast<int>('\'')));
+                    }
+                    if(it[2]=='\\'){
+                        exps.push_back(std::to_string(static_cast<int>('\\')));
+                    }
+                    if(it[2]=='0'){
+                        exps.push_back(std::to_string(static_cast<int>('\0')));
+                    }
+                }
             } else {
                 answer += it;
                 exps.push_back(it);
@@ -326,5 +359,6 @@ int cal_exp(std::vector<std::string> values) {
             exps.push_back(std::to_string(var_value));
         }
     }
-    return eval_expr(exps);
+//    return eval_expr(answer);
+    return Cal_Exp(exps);
 }
